@@ -411,11 +411,40 @@ def run_api_timeout_scenario(orders, audit_log, executed_idemp_keys):
             simulated_outcome="Order remains in current stage awaiting intervention"
         )
 
+    before_state = {
+        "order_id": "ORD-8041",
+        "stage": "Payment Confirmed",
+        "status": "API Error",
+        "detail": "Awaiting response from PayFlow Payment Gateway. Socket closed after 30s timeout."
+    }
+
+    result_details = {
+        "what_happened": "The payment gateway timed out after 30 seconds without returning a confirmation.",
+        "why_it_happened": "A network drop occurred during the API call. Downstream reconciliation confirmed zero transactions were logged.",
+        "what_checked": "Verified failure via downstream ledger; confirmed unique idempotency key; checked retry limit (0/2 used); verified recovery policy.",
+        "decision": "SAFE RETRY ALLOWED",
+        "decision_badge": "SAFE RETRY ALLOWED",
+        "decision_color": "green",
+        "what_changed": f"Simulated safe retry was dispatched with key '{order['idempotency_key']}'. Payment succeeded ($2,840.00) and order advanced to Fulfilment Started.",
+        "next_step": "Proceed with warehouse picking and packing."
+    }
+
+    after_state = {
+        "order_id": "ORD-8041",
+        "stage": "Fulfilment Started",
+        "status": "Retry Permitted",
+        "detail": "Payment authorization safely completed via simulated retry. Order moved forward in the pipeline."
+    }
+
     return {
-        "scenario_name": "Scenario 1: API Timeout and Safe Recovery",
+        "scenario_name": "API Timeout",
+        "scenario_full_title": "Scenario 1: API Timeout",
         "order": order,
         "safety_result": safety_result,
-        "simulated_action_result": simulated_action_result
+        "simulated_action_result": simulated_action_result,
+        "before_state": before_state,
+        "result_details": result_details,
+        "after_state": after_state
     }
 
 def run_delayed_order_scenario(orders, audit_log):
@@ -461,8 +490,34 @@ def run_delayed_order_scenario(orders, audit_log):
         simulated_outcome="Operations supervisor alerted; re-route recommendation pushed to warehouse console"
     )
 
+    before_state = {
+        "order_id": "ORD-8042",
+        "stage": "Fulfilment Started",
+        "status": "In Progress",
+        "detail": f"The order has been in fulfilment for {order['elapsed_minutes']:.0f} minutes. The configured limit is {order['sla_threshold_minutes']:.0f} minutes."
+    }
+
+    result_details = {
+        "what_happened": f"The order has been in fulfilment for {order['elapsed_minutes']:.0f} minutes, exceeding the configured limit of {order['sla_threshold_minutes']:.0f} minutes.",
+        "why_it_happened": "Warehouse Node #4 RF scanner disconnected, causing pick tickets to queue without scanner confirmation.",
+        "what_checked": f"Checked elapsed stage duration ({order['elapsed_minutes']:.0f}m) against allowed threshold ({order['sla_threshold_minutes']:.0f}m); verified missing pick confirmation scan.",
+        "decision": "DELAY RISK DETECTED",
+        "decision_badge": "DELAY RISK DETECTED",
+        "decision_color": "orange",
+        "what_changed": "Order was flagged with an SLA breach alert (+33m over limit) and a priority re-route ticket was dispatched to warehouse ops.",
+        "next_step": "Check the fulfilment status and re-route the picking task to warehouse Node #2 (Zone A)."
+    }
+
+    after_state = {
+        "order_id": "ORD-8042",
+        "stage": "Fulfilment Started",
+        "status": "SLA Risk",
+        "detail": "Order remains in Fulfilment Started with an active SLA risk alert awaiting supervisor re-assignment."
+    }
+
     return {
-        "scenario_name": "Scenario 2: Delayed Order and SLA Alert",
+        "scenario_name": "Delayed Order",
+        "scenario_full_title": "Scenario 2: Delayed Order",
         "order": order,
         "sla_result": sla_result,
         "root_cause": root_cause,
@@ -473,7 +528,10 @@ def run_delayed_order_scenario(orders, audit_log):
             "simulated_response": "ACK: Ticket assigned to Floor Lead (Zone B). Re-route proposal generated.",
             "order_stage_transition": "Stage maintained at 'Fulfilment Started' with High Priority Escalation flag",
             "audit_logged": True
-        }
+        },
+        "before_state": before_state,
+        "result_details": result_details,
+        "after_state": after_state
     }
 
 def run_uncertain_outcome_scenario(orders, audit_log, executed_idemp_keys):
@@ -519,8 +577,34 @@ def run_uncertain_outcome_scenario(orders, audit_log, executed_idemp_keys):
         simulated_outcome="Order locked in safety escrow; incident escalated for operator ledger verification"
     )
 
+    before_state = {
+        "order_id": "ORD-8043",
+        "stage": "Inventory Reserved",
+        "status": "In Progress",
+        "detail": "Waiting for cold-chain inventory commit confirmation. API socket timed out after 30 seconds."
+    }
+
+    result_details = {
+        "what_happened": "The request timed out, and the final result is unknown.",
+        "why_it_happened": "The commit request reached the upstream network before the connection dropped. The ledger cannot confirm whether stock was reserved.",
+        "what_checked": "Downstream ledger query (returned HTTP 502 Indeterminate); duplicate protection check (failed due to ambiguity); safety policy.",
+        "decision": "HUMAN REVIEW REQUIRED — RETRY BLOCKED",
+        "decision_badge": "HUMAN REVIEW REQUIRED — RETRY BLOCKED",
+        "decision_color": "red",
+        "what_changed": "Automatic retry was strictly BLOCKED to prevent duplicate allocation of critical medical vaccines. Order locked in safety escrow.",
+        "next_step": "Check the order in the other system before deciding whether to retry."
+    }
+
+    after_state = {
+        "order_id": "ORD-8043",
+        "stage": "Inventory Reserved",
+        "status": "Human Review Required",
+        "detail": "Order state remains unchanged at Inventory Reserved. Retrying was blocked to protect inventory from duplicate reservation."
+    }
+
     return {
-        "scenario_name": "Scenario 3: Uncertain Outcome and Human Review",
+        "scenario_name": "Uncertain Outcome",
+        "scenario_full_title": "Scenario 3: Uncertain Outcome",
         "order": order,
         "safety_result": safety_result,
         "root_cause": root_cause,
@@ -532,7 +616,10 @@ def run_uncertain_outcome_scenario(orders, audit_log, executed_idemp_keys):
             "simulated_response": "Escrow Lock #ESC-8043-SAFE active. Automatic retry disabled for order ORD-8043.",
             "order_stage_transition": "Stage held at 'Inventory Reserved' awaiting manual reconciliation",
             "audit_logged": True
-        }
+        },
+        "before_state": before_state,
+        "result_details": result_details,
+        "after_state": after_state
     }
 
 def run_operator_resolution(orders, audit_log, order_id, resolution_type, executed_idemp_keys):

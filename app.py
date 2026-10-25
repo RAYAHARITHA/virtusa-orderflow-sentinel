@@ -1,5 +1,5 @@
 """
-OrderFlow Sentinel — Predict. Explain. Recover Safely.
+OrderFlow Sentinel — Predict delays. Understand problems. Recover safely.
 Virtusa Hackathon Prototype — Use Case 1: OrderFlow Sentinel
 Built with Python, Streamlit, and Pandas.
 """
@@ -9,8 +9,8 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 
-# Import modular data and engine components
-from data import get_initial_orders, get_initial_audit_log, get_stage_sla_limits
+# Import data and engine logic
+from data import get_initial_orders, get_initial_audit_log
 from engine import (
     calculate_sla_risk,
     analyze_root_cause,
@@ -22,188 +22,358 @@ from engine import (
 )
 
 # ---------------------------------------------------------
-# Page Configuration & Modern Enterprise Styling
+# Page Configuration & Clean Visual Styling
 # ---------------------------------------------------------
 st.set_page_config(
     page_title="OrderFlow Sentinel | Predict. Explain. Recover Safely.",
     page_icon="🛡️",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
-# Custom Enterprise CSS: Navy Blue, Teal, White, and Subtle Gray
+# Custom Enterprise CSS: High-contrast, clean cards, clear typography
 st.markdown("""
 <style>
-    /* Global Theme & Font */
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
     
     html, body, [class*="css"] {
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     }
     
-    /* Main container background */
-    .main {
+    /* Background */
+    .stApp {
         background-color: #f8fafc;
     }
     
-    /* Header Container */
+    /* Top Header */
     .sentinel-header {
-        background: linear-gradient(135deg, #0a192f 0%, #0f3460 50%, #172a45 100%);
-        padding: 24px 32px;
-        border-radius: 12px;
-        color: #ffffff;
-        margin-bottom: 24px;
-        box-shadow: 0 4px 16px rgba(10, 25, 47, 0.15);
-        border-left: 6px solid #00b4d8;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 16px 24px;
+        margin-bottom: 20px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.03);
     }
     .sentinel-title {
-        font-size: 2.2rem;
+        font-size: 1.7rem;
         font-weight: 800;
-        letter-spacing: -0.5px;
+        color: #0f2942;
         margin: 0;
-        color: #ffffff;
+        display: flex;
+        align-items: center;
+        gap: 10px;
     }
     .sentinel-subtitle {
-        font-size: 1.15rem;
-        font-weight: 500;
-        color: #64ffda;
-        margin-top: 4px;
-        letter-spacing: 0.5px;
-    }
-    .sentinel-desc {
         font-size: 0.95rem;
-        color: #cbd5e1;
-        margin-top: 8px;
-        max-width: 900px;
-        line-height: 1.45;
+        color: #475569;
+        margin-top: 3px;
+        font-weight: 500;
     }
-    .sentinel-tag {
-        display: inline-block;
-        background: rgba(0, 180, 216, 0.2);
-        color: #00b4d8;
-        border: 1px solid #00b4d8;
-        padding: 4px 12px;
+    .demo-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: #ecfdf5;
+        color: #065f46;
+        border: 1px solid #a7f3d0;
+        padding: 6px 14px;
         border-radius: 20px;
-        font-size: 0.8rem;
+        font-size: 0.82rem;
         font-weight: 600;
-        margin-top: 10px;
+    }
+    .demo-dot {
+        width: 8px;
+        height: 8px;
+        background-color: #10b981;
+        border-radius: 50%;
+        display: inline-block;
     }
 
-    /* Metric Cards */
-    .metric-card {
+    /* Section Headings */
+    .section-title {
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: #0f2942;
+        margin-top: 24px;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    /* Summary Cards */
+    .summary-card {
         background: #ffffff;
         border: 1px solid #e2e8f0;
         border-radius: 10px;
         padding: 18px 20px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-        transition: transform 0.15s ease, box-shadow 0.15s ease;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
     }
-    .metric-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-    }
-    .metric-label {
+    .summary-label {
         font-size: 0.82rem;
         font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.8px;
         color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
     }
-    .metric-value {
-        font-size: 1.85rem;
-        font-weight: 700;
-        color: #0f172a;
-        margin-top: 4px;
+    .summary-value {
+        font-size: 2rem;
+        font-weight: 800;
+        color: #0f2942;
+        margin-top: 2px;
     }
-    .metric-sub {
-        font-size: 0.78rem;
+    .summary-sub {
+        font-size: 0.8rem;
         color: #94a3b8;
         margin-top: 2px;
     }
 
-    /* Scenario Launch Bar */
-    .scenario-bar-container {
+    /* Selected Order Callout */
+    .selected-order-banner {
         background: #ffffff;
-        border: 1px solid #cbd5e1;
-        border-radius: 12px;
-        padding: 18px 24px;
-        margin-bottom: 24px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.03);
+        border-left: 5px solid #0d9488;
+        border-top: 1px solid #e2e8f0;
+        border-right: 1px solid #e2e8f0;
+        border-bottom: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 14px 18px;
+        margin-top: 10px;
+        margin-bottom: 16px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
     }
 
-    /* Decision Alert Banners */
-    .decision-banner-safe {
-        background: #ecfdf5;
-        border: 2px solid #10b981;
+    /* Scenario Action Cards */
+    .scenario-action-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
         border-radius: 10px;
-        padding: 18px 22px;
-        margin: 16px 0;
+        padding: 20px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        min-height: 200px;
     }
-    .decision-banner-blocked {
-        background: #fef2f2;
-        border: 2px solid #ef4444;
-        border-radius: 10px;
-        padding: 18px 22px;
-        margin: 16px 0;
+    .card-teal {
+        border-top: 4px solid #0d9488;
     }
-    .decision-banner-warning {
-        background: #fffbeb;
-        border: 2px solid #f59e0b;
-        border-radius: 10px;
-        padding: 18px 22px;
-        margin: 16px 0;
+    .card-orange {
+        border-top: 4px solid #d97706;
     }
-    .decision-banner-review {
-        background: #f5f3ff;
-        border: 2px solid #7c3aed;
-        border-radius: 10px;
-        padding: 18px 22px;
-        margin: 16px 0;
+    .card-red {
+        border-top: 4px solid #dc2626;
     }
-
-    /* Badges */
-    .badge {
-        display: inline-block;
-        padding: 3px 10px;
-        border-radius: 14px;
-        font-size: 0.75rem;
+    .scenario-name {
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: #0f2942;
+        margin-bottom: 4px;
+    }
+    .scenario-question {
+        font-size: 0.95rem;
         font-weight: 600;
-        text-align: center;
+        color: #1e3a5f;
+        margin-bottom: 6px;
     }
-    .badge-success { background: #dcfce7; color: #15803d; border: 1px solid #86efac; }
-    .badge-danger { background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
-    .badge-warning { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; }
-    .badge-info { background: #e0f2fe; color: #0369a1; border: 1px solid #7dd3fc; }
-    .badge-purple { background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd; }
-    .badge-neutral { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
-
-    /* Timeline styling */
-    .timeline-node {
-        border-left: 3px solid #00b4d8;
-        padding-left: 16px;
-        margin-left: 8px;
-        margin-bottom: 14px;
-        position: relative;
-    }
-    .timeline-node::before {
-        content: '';
-        position: absolute;
-        left: -8px;
-        top: 2px;
-        width: 13px;
-        height: 13px;
-        border-radius: 50%;
-        background: #00b4d8;
-        border: 2px solid #ffffff;
+    .scenario-desc {
+        font-size: 0.86rem;
+        color: #64748b;
+        line-height: 1.4;
+        margin-bottom: 16px;
+        flex-grow: 1;
     }
 
-    /* Gate Card */
-    .gate-card {
+    /* Prominent Result Section */
+    .result-container {
+        background: #ffffff;
+        border: 2px solid #cbd5e1;
+        border-radius: 12px;
+        padding: 24px;
+        margin-top: 24px;
+        margin-bottom: 24px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+    .result-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid #e2e8f0;
+        margin-bottom: 18px;
+    }
+    .result-title {
+        font-size: 1.35rem;
+        font-weight: 800;
+        color: #0f2942;
+    }
+
+    /* Decision Badges */
+    .badge-decision-green {
+        background: #ecfdf5;
+        color: #065f46;
+        border: 2px solid #0d9488;
+        padding: 6px 16px;
+        border-radius: 20px;
+        font-size: 0.95rem;
+        font-weight: 800;
+        letter-spacing: 0.3px;
+        display: inline-block;
+    }
+    .badge-decision-orange {
+        background: #fffbeb;
+        color: #92400e;
+        border: 2px solid #d97706;
+        padding: 6px 16px;
+        border-radius: 20px;
+        font-size: 0.95rem;
+        font-weight: 800;
+        letter-spacing: 0.3px;
+        display: inline-block;
+    }
+    .badge-decision-red {
+        background: #fef2f2;
+        color: #991b1b;
+        border: 2px solid #dc2626;
+        padding: 6px 16px;
+        border-radius: 20px;
+        font-size: 0.95rem;
+        font-weight: 800;
+        letter-spacing: 0.3px;
+        display: inline-block;
+    }
+
+    /* Comparison Cards */
+    .compare-card {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 16px;
+        height: 100%;
+    }
+    .compare-header {
+        font-size: 0.92rem;
+        font-weight: 700;
+        color: #0f2942;
+        border-bottom: 1px solid #cbd5e1;
+        padding-bottom: 6px;
+        margin-bottom: 10px;
+    }
+    .compare-label {
+        font-size: 0.76rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        color: #64748b;
+        margin-top: 8px;
+    }
+    .compare-value {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #0f172a;
+        margin-top: 1px;
+    }
+
+    /* Answers Box */
+    .answers-box {
         background: #ffffff;
         border: 1px solid #e2e8f0;
         border-radius: 8px;
-        padding: 12px 16px;
-        margin-bottom: 8px;
+        padding: 18px;
+        margin-top: 14px;
+    }
+    .answer-item-title {
+        font-size: 0.82rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: #475569;
+        margin-top: 10px;
+        letter-spacing: 0.3px;
+    }
+    .answer-item-content {
+        font-size: 0.9rem;
+        color: #1e293b;
+        margin-top: 2px;
+        line-height: 1.45;
+    }
+
+    /* Journey Tracker */
+    .journey-box {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 18px 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+    }
+    .journey-steps-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 12px;
+        margin-bottom: 14px;
+    }
+    .journey-node {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border-radius: 18px;
+        font-size: 0.84rem;
+        font-weight: 600;
+    }
+    .node-completed {
+        background: #ecfdf5;
+        color: #065f46;
+        border: 1px solid #a7f3d0;
+    }
+    .node-current {
+        background: #eff6ff;
+        color: #1e40af;
+        border: 2px solid #3b82f6;
+    }
+    .node-delayed {
+        background: #fffbeb;
+        color: #92400e;
+        border: 2px solid #d97706;
+    }
+    .node-blocked {
+        background: #fef2f2;
+        color: #991b1b;
+        border: 2px solid #dc2626;
+    }
+    .node-pending {
+        background: #f1f5f9;
+        color: #64748b;
+        border: 1px solid #cbd5e1;
+    }
+    .node-arrow {
+        color: #94a3b8;
+        font-size: 0.95rem;
+        font-weight: 700;
+    }
+    .journey-legend {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        flex-wrap: wrap;
+        font-size: 0.78rem;
+        color: #64748b;
+        border-top: 1px solid #f1f5f9;
+        padding-top: 10px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -220,104 +390,254 @@ if "audit_log" not in st.session_state:
 if "executed_idemp_keys" not in st.session_state:
     st.session_state.executed_idemp_keys = set()
 
-if "active_scenario_result" not in st.session_state:
-    st.session_state.active_scenario_result = None
-
 if "selected_order_id" not in st.session_state:
     st.session_state.selected_order_id = "ORD-8041"
+
+if "active_scenario_result" not in st.session_state:
+    # Initialize with default API Timeout scenario pre-loaded so judges immediately see the rich layout!
+    st.session_state.active_scenario_result = run_api_timeout_scenario(
+        orders=st.session_state.orders,
+        audit_log=st.session_state.audit_log,
+        executed_idemp_keys=st.session_state.executed_idemp_keys
+    )
 
 def reset_entire_demo():
     """Restores initial state for fresh demonstration."""
     st.session_state.orders = get_initial_orders()
     st.session_state.audit_log = get_initial_audit_log()
     st.session_state.executed_idemp_keys = set()
-    st.session_state.active_scenario_result = None
     st.session_state.selected_order_id = "ORD-8041"
+    st.session_state.active_scenario_result = None
 
-# ---------------------------------------------------------
-# Header Banner
-# ---------------------------------------------------------
+# =========================================================
+# A. HEADER
+# =========================================================
 st.markdown("""
 <div class="sentinel-header">
-    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
-        <div>
-            <h1 class="sentinel-title">🛡️ OrderFlow Sentinel</h1>
-            <div class="sentinel-subtitle">Predict. Explain. Recover Safely.</div>
-            <div class="sentinel-desc">
-                Monitor order health, detect SLA risks, investigate failures, and demonstrate evidence-based recovery.
-                Core Differentiator: <strong>“Prove Before You Retry”</strong> — never blindly retry on API timeout.
-            </div>
-        </div>
-        <div>
-            <span class="sentinel-tag">Virtusa Hackathon Prototype • Use Case 1</span>
+    <div>
+        <div class="sentinel-title">🛡️ OrderFlow Sentinel</div>
+        <div class="sentinel-subtitle">Predict delays. Understand problems. Recover safely.</div>
+    </div>
+    <div>
+        <div class="demo-badge">
+            <span class="demo-dot"></span> Demo Mode — Sample Data Only
         </div>
     </div>
 </div>
 """, unsafe_allow_html=True)
 
-# ---------------------------------------------------------
-# Dynamic Top KPI Metrics
-# ---------------------------------------------------------
+# =========================================================
+# B. SUMMARY (3 Summary Cards Calculated from Actual Data)
+# =========================================================
 orders_dict = st.session_state.orders
 total_orders = len(orders_dict)
-in_progress_count = sum(1 for o in orders_dict.values() if o["status_code"] in ["IN_PROGRESS", "API_TIMEOUT", "API_ERROR", "SLA_RISK", "UNCERTAIN_TIMEOUT", "RETRY_PERMITTED", "RETRY_BLOCKED", "HUMAN_REVIEW_REQUIRED"])
-sla_risk_count = sum(1 for o in orders_dict.values() if o["status_code"] == "SLA_RISK" or "SLA Risk" in o["risk_level"])
-human_review_count = sum(1 for o in orders_dict.values() if o["status_code"] == "HUMAN_REVIEW_REQUIRED" or o["status"] == "Human Review Required")
+in_progress_count = sum(1 for o in orders_dict.values() if o["status_code"] in ["IN_PROGRESS", "API_TIMEOUT", "API_ERROR", "SLA_RISK", "UNCERTAIN_TIMEOUT", "RETRY_PERMITTED"])
+attention_count = sum(1 for o in orders_dict.values() if o["status_code"] in ["API_TIMEOUT", "API_ERROR", "SLA_RISK", "UNCERTAIN_TIMEOUT", "HUMAN_REVIEW_REQUIRED", "RETRY_BLOCKED"])
 
-kpi_col1, kpi_col2, kpi_col3, kpi_col4 = st.columns(4)
+sum_col1, sum_col2, sum_col3 = st.columns(3)
 
-with kpi_col1:
+with sum_col1:
     st.markdown(f"""
-    <div class="metric-card" style="border-left: 4px solid #00b4d8;">
-        <div class="metric-label">Total Monitored Orders</div>
-        <div class="metric-value">{total_orders}</div>
-        <div class="metric-sub">Across 7 lifecycle stages</div>
+    <div class="summary-card">
+        <div class="summary-label">Total Orders Monitored</div>
+        <div class="summary-value">{total_orders}</div>
+        <div class="summary-sub">Synthetic B2B fleet orders</div>
     </div>
     """, unsafe_allow_html=True)
 
-with kpi_col2:
+with sum_col2:
     st.markdown(f"""
-    <div class="metric-card" style="border-left: 4px solid #0284c7;">
-        <div class="metric-label">Orders in Progress</div>
-        <div class="metric-value">{in_progress_count}</div>
-        <div class="metric-sub">Active pipeline transactions</div>
+    <div class="summary-card">
+        <div class="summary-label">Orders In Progress</div>
+        <div class="summary-value" style="color: #0284c7;">{in_progress_count}</div>
+        <div class="summary-sub">Actively moving through lifecycle</div>
     </div>
     """, unsafe_allow_html=True)
 
-with kpi_col3:
+with sum_col3:
     st.markdown(f"""
-    <div class="metric-card" style="border-left: 4px solid #f59e0b;">
-        <div class="metric-label">Orders at SLA Risk</div>
-        <div class="metric-value" style="color: #b45309;">{sla_risk_count}</div>
-        <div class="metric-sub">Deterministic stage threshold breach</div>
+    <div class="summary-card">
+        <div class="summary-label">Orders Needing Attention</div>
+        <div class="summary-value" style="color: #d97706;">{attention_count}</div>
+        <div class="summary-sub">SLA breaches, timeouts & reviews</div>
     </div>
     """, unsafe_allow_html=True)
 
-with kpi_col4:
+# =========================================================
+# C. ORDER EXPLORER (Searchable & Selectable Table)
+# =========================================================
+st.markdown('<div class="section-title">📦 Order Explorer</div>', unsafe_allow_html=True)
+
+# Filter / Search controls
+exp_c1, exp_c2 = st.columns([1.5, 1])
+with exp_c1:
+    search_query = st.text_input("🔍 Search orders by Order ID, customer, or stage:", placeholder="e.g. ORD-8041, Acme, Fulfilment")
+with exp_c2:
+    status_filter = st.selectbox("Filter by Status:", ["All Statuses"] + sorted(list({o["status"] for o in orders_dict.values()})))
+
+# Filtered list
+filtered_oids = []
+for oid, o in orders_dict.items():
+    if search_query:
+        q = search_query.lower()
+        if q not in oid.lower() and q not in o["customer"].lower() and q not in o["current_stage"].lower():
+            continue
+    if status_filter != "All Statuses" and o["status"] != status_filter:
+        continue
+    filtered_oids.append(oid)
+
+if not filtered_oids:
+    filtered_oids = list(orders_dict.keys())
+
+# Build Display Table
+table_rows = []
+for oid in filtered_oids:
+    o = orders_dict[oid]
+    table_rows.append({
+        "Order ID": o["order_id"],
+        "Customer": o["customer"],
+        "Current Stage": o["current_stage"],
+        "Status": o["status"],
+        "Time in Stage": f"{o['elapsed_minutes']:.1f} mins",
+        "SLA Limit": f"{o['sla_threshold_minutes']:.1f} mins",
+        "Risk Level": o["risk_level"],
+        "Next Recommended Action": o.get("recommended_next_action", "Monitor")
+    })
+
+df_orders = pd.DataFrame(table_rows)
+st.dataframe(df_orders, use_container_width=True, hide_index=True)
+
+# Order Selector
+sel_col1, sel_col2 = st.columns([1.2, 2.8])
+with sel_col1:
+    available_choices = filtered_oids
+    default_idx = available_choices.index(st.session_state.selected_order_id) if st.session_state.selected_order_id in available_choices else 0
+    chosen_order_id = st.selectbox(
+        "Select an order to inspect its journey & details:",
+        available_choices,
+        index=default_idx,
+        key="order_selector"
+    )
+    if chosen_order_id != st.session_state.selected_order_id:
+        st.session_state.selected_order_id = chosen_order_id
+        st.rerun()
+
+current_order = orders_dict[st.session_state.selected_order_id]
+
+# Visually obvious selected order banner
+with sel_col2:
     st.markdown(f"""
-    <div class="metric-card" style="border-left: 4px solid #7c3aed;">
-        <div class="metric-label">Human Review Required</div>
-        <div class="metric-value" style="color: #6d28d9;">{human_review_count}</div>
-        <div class="metric-sub">Uncertain outcome / Safety lock</div>
+    <div class="selected-order-banner">
+        <div>
+            <span style="font-size: 0.8rem; color: #64748b; font-weight: 600; text-transform: uppercase;">Viewing Order</span>
+            <div style="font-size: 1.15rem; font-weight: 800; color: #0f2942;">{current_order['order_id']} — {current_order['customer']}</div>
+            <div style="font-size: 0.85rem; color: #475569;">Item: {current_order.get('item_summary', 'B2B Equipment')} | Value: <strong>${current_order.get('amount', 0):,.2f}</strong></div>
+        </div>
+        <div style="text-align: right;">
+            <div style="font-size: 0.82rem; color: #64748b;">Stage: <strong>{current_order['current_stage']}</strong></div>
+            <div style="font-size: 0.82rem; color: #0f2942;">Status: <strong>{current_order['status']}</strong> ({current_order['elapsed_minutes']:.1f}m spent)</div>
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
-st.markdown("<div style='height: 16px;'></div>", unsafe_allow_html=True)
+# =========================================================
+# D. ORDER JOURNEY (Visual Lifecycle & Legend)
+# =========================================================
+st.markdown('<div class="section-title">🗺️ Order Journey</div>', unsafe_allow_html=True)
 
-# ---------------------------------------------------------
-# Prominent Scenario Launch Bar
-# ---------------------------------------------------------
-st.markdown("### 🎯 Interactive Demo Scenarios")
-st.markdown("""
-<div style="font-size: 0.9rem; color: #475569; margin-bottom: 10px;">
-    Click any scenario button below to simulate live telemetry and evaluate the Sentinel Safety Engine:
+lifecycle_stages = [
+    "Order Created",
+    "Payment Confirmed",
+    "Inventory Reserved",
+    "Fulfilment Started",
+    "Shipment Confirmed",
+    "Completed"
+]
+
+stage_map = {
+    "Order Created": 0,
+    "Payment Confirmed": 1,
+    "Inventory Reserved": 2,
+    "Fulfilment Started": 3,
+    "Shipment Requested": 3,
+    "Shipment Confirmed": 4,
+    "Order Completed": 5,
+    "Completed": 5
+}
+
+current_stage_idx = stage_map.get(current_order.get("current_stage"), 0)
+order_status_code = current_order.get("status_code", "IN_PROGRESS")
+order_risk = current_order.get("risk_level", "Normal")
+
+step_html_list = []
+for idx, s_name in enumerate(lifecycle_stages):
+    if idx < current_stage_idx:
+        icon = "✅"
+        cls = "node-completed"
+    elif idx == current_stage_idx:
+        if "SLA Risk" in order_risk or order_status_code == "SLA_RISK":
+            icon = "⚠️"
+            cls = "node-delayed"
+        elif order_status_code in ["HUMAN_REVIEW_REQUIRED", "RETRY_BLOCKED"]:
+            icon = "❌"
+            cls = "node-blocked"
+        elif order_status_code in ["API_TIMEOUT", "API_ERROR"]:
+            icon = "⚠️"
+            cls = "node-delayed"
+        else:
+            icon = "🔵"
+            cls = "node-current"
+    else:
+        icon = "⚪"
+        cls = "node-pending"
+
+    step_html_list.append(f'<span class="journey-node {cls}">{icon} {s_name}</span>')
+
+journey_string = ' <span class="node-arrow">➔</span> '.join(step_html_list)
+
+st.markdown(f"""
+<div class="journey-box">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-size: 0.85rem; font-weight: 700; color: #0f2942; text-transform: uppercase;">
+            Lifecycle Progress for {current_order['order_id']}
+        </span>
+        <span style="font-size: 0.8rem; color: #64748b;">
+            Current Stage: <strong>{current_order['current_stage']}</strong>
+        </span>
+    </div>
+    <div class="journey-steps-row">
+        {journey_string}
+    </div>
+    <div class="journey-legend">
+        <span><strong>Legend:</strong></span>
+        <span>✅ Completed stage</span>
+        <span>🔵 Current normal stage</span>
+        <span>⚠️ Delayed / Warning stage</span>
+        <span>❌ Blocked / Review stage</span>
+        <span>⚪ Pending future stage</span>
+    </div>
 </div>
 """, unsafe_allow_html=True)
 
-btn_c1, btn_c2, btn_c3, btn_c4 = st.columns([1.2, 1.2, 1.3, 0.8])
+# =========================================================
+# E. THREE INTERACTIVE SCENARIOS
+# =========================================================
+st.markdown('<div class="section-title">🎯 Three Interactive Scenarios</div>', unsafe_allow_html=True)
+st.markdown("<div style='font-size: 0.88rem; color: #475569; margin-bottom: 12px;'>Click any scenario button below to simulate an event and evaluate Sentinel's recovery safety logic:</div>", unsafe_allow_html=True)
 
-with btn_c1:
-    if st.button("⚡ Run API Timeout Scenario", use_container_width=True, type="primary"):
+card_col1, card_col2, card_col3 = st.columns(3)
+
+with card_col1:
+    st.markdown("""
+    <div class="scenario-action-card card-teal">
+        <div>
+            <div class="scenario-name">API Timeout</div>
+            <div class="scenario-question">Can we retry safely?</div>
+            <div class="scenario-desc">The system did not receive a reply from the next service.</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    if st.button("Run API Timeout Demo", key="btn_run_timeout", use_container_width=True, type="primary"):
         res = run_api_timeout_scenario(
             orders=st.session_state.orders,
             audit_log=st.session_state.audit_log,
@@ -325,20 +645,38 @@ with btn_c1:
         )
         st.session_state.active_scenario_result = res
         st.session_state.selected_order_id = "ORD-8041"
-        st.toast("Scenario 1 Executed: Safe simulated retry permitted!", icon="⚡")
+        st.rerun()
 
-with btn_c2:
-    if st.button("⏱️ Run Delayed Order Scenario", use_container_width=True):
+with card_col2:
+    st.markdown("""
+    <div class="scenario-action-card card-orange">
+        <div>
+            <div class="scenario-name">Delayed Order</div>
+            <div class="scenario-question">Is this order taking too long?</div>
+            <div class="scenario-desc">The order has taken longer than expected in fulfilment.</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    if st.button("Run Delayed Order Demo", key="btn_run_delayed", use_container_width=True):
         res = run_delayed_order_scenario(
             orders=st.session_state.orders,
             audit_log=st.session_state.audit_log
         )
         st.session_state.active_scenario_result = res
         st.session_state.selected_order_id = "ORD-8042"
-        st.toast("Scenario 2 Executed: SLA risk alert raised!", icon="⏱️")
+        st.rerun()
 
-with btn_c3:
-    if st.button("🛡️ Run Uncertain Outcome Scenario", use_container_width=True):
+with card_col3:
+    st.markdown("""
+    <div class="scenario-action-card card-red">
+        <div>
+            <div class="scenario-name">Uncertain Outcome</div>
+            <div class="scenario-question">Could retrying create a duplicate?</div>
+            <div class="scenario-desc">The request timed out, and the final result is unknown.</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    if st.button("Run Uncertain Outcome Demo", key="btn_run_uncertain", use_container_width=True):
         res = run_uncertain_outcome_scenario(
             orders=st.session_state.orders,
             audit_log=st.session_state.audit_log,
@@ -346,677 +684,220 @@ with btn_c3:
         )
         st.session_state.active_scenario_result = res
         st.session_state.selected_order_id = "ORD-8043"
-        st.toast("Scenario 3 Executed: Retry blocked — Human Review Required!", icon="🛡️")
-
-with btn_c4:
-    if st.button("🔄 Reset Demo", use_container_width=True, help="Restore original synthetic order data and audit state"):
-        reset_entire_demo()
-        st.toast("Demo state reset to initial synthetic baseline.", icon="🔄")
         st.rerun()
 
-st.markdown("<hr style='margin: 18px 0; border: none; border-top: 1px solid #e2e8f0;'>", unsafe_allow_html=True)
-
-# ---------------------------------------------------------
-# Main Tabs Navigation
-# ---------------------------------------------------------
-tab_scenario, tab_fleet, tab_edge, tab_audit, tab_guide = st.tabs([
-    "🚀 Active Scenario & Recovery Console",
-    "📦 Order Digital Twin & Fleet Dashboard",
-    "🔬 Safety Gates & Edge-Case Lab",
-    "📜 Immutable Audit Trail",
-    "🎓 Presentation & Architecture Guide"
-])
-
 # =========================================================
-# TAB 1: ACTIVE SCENARIO & RECOVERY CONSOLE
+# F. SCENARIO RESULT (Most Prominent Section)
 # =========================================================
-with tab_scenario:
-    active_res = st.session_state.active_scenario_result
+active_res = st.session_state.active_scenario_result
 
-    if active_res is None:
-        st.info("👆 **Select and run one of the three scenarios above** (or inspect existing sample orders in Tab 2).")
-        st.markdown("""
-        #### Demonstrable Scenarios Overview:
-        - **Scenario 1: API Timeout & Safe Simulated Retry**
-          - Simulates a payment gateway timeout where downstream ledger reconciliation proves the transaction was never created. All 4 safety gates pass. Simulated safe retry is authorized and executed.
-        - **Scenario 2: Delayed Order & Predictive SLA Alert**
-          - Simulates a warehouse picking task that has stalled for 48 minutes against a 15-minute threshold. Transparent rule-based SLA risk alert raised with root-cause telemetry.
-        - **Scenario 3: Uncertain API Outcome & Human Review ("Prove Before You Retry")**
-          - Simulates an inventory commit timeout where the downstream ledger is indeterminate (HTTP 502). Automatic retry is strictly blocked to prevent double-reservation.
-        """)
-    else:
-        scenario_name = active_res["scenario_name"]
-        order = active_res["order"]
-        order_id = order["order_id"]
+if active_res is not None:
+    scenario_name = active_res["scenario_name"]
+    res_details = active_res["result_details"]
+    before = active_res["before_state"]
+    after = active_res["after_state"]
 
-        st.markdown(f"### 📍 Execution Result: {scenario_name}")
+    decision_badge_style = {
+        "green": "badge-decision-green",
+        "orange": "badge-decision-orange",
+        "red": "badge-decision-red"
+    }.get(res_details.get("decision_color", "green"), "badge-decision-green")
 
-        # Top order summary pill
+    st.markdown('<div class="result-container">', unsafe_allow_html=True)
+
+    # Top result header
+    res_h1, res_h2, res_h3 = st.columns([1.6, 1.4, 0.6])
+    with res_h1:
+        st.markdown(f'<div class="result-title">Scenario Result: {scenario_name}</div>', unsafe_allow_html=True)
+    with res_h2:
+        st.markdown(f'<div class="{decision_badge_style}">{res_details["decision_badge"]}</div>', unsafe_allow_html=True)
+    with res_h3:
+        if st.button("Reset Demo", key="btn_reset_center", use_container_width=True, help="Reset demo to initial sample state"):
+            reset_entire_demo()
+            st.toast("Demo state reset to initial baseline.", icon="🔄")
+            st.rerun()
+
+    # Before & After comparison cards
+    st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+    cmp_col1, cmp_col2 = st.columns(2)
+
+    with cmp_col1:
         st.markdown(f"""
-        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 20px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
-            <div>
-                <strong style="color: #0f172a; font-size: 1.1rem;">Order: {order_id}</strong>
-                <span style="color: #64748b; margin-left: 10px;">| Customer: {order['customer']}</span>
-                <span style="color: #64748b; margin-left: 10px;">| Value: ${order['amount']:,.2f}</span>
-            </div>
-            <div>
-                <span class="badge badge-info">{order['current_stage']}</span>
-                <span class="badge badge-warning" style="margin-left: 6px;">{order['status']}</span>
-            </div>
+        <div class="compare-card">
+            <div class="compare-header">Before (Order Status)</div>
+            <div class="compare-label">Order ID</div>
+            <div class="compare-value">{before['order_id']}</div>
+            <div class="compare-label">Previous Stage</div>
+            <div class="compare-value">{before['stage']}</div>
+            <div class="compare-label">Previous Status</div>
+            <div class="compare-value">{before['status']}</div>
+            <div class="compare-label">What was waiting or delayed</div>
+            <div class="compare-value" style="color: #475569; font-size: 0.86rem; font-weight: 500;">{before['detail']}</div>
         </div>
         """, unsafe_allow_html=True)
 
-        # SCENARIO 1 RENDER
-        if "Scenario 1" in scenario_name:
-            safety = active_res["safety_result"]
-            action = active_res["simulated_action_result"]
-
-            st.markdown(f"""
-            <div class="decision-banner-safe">
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <span style="font-size: 1.8rem;">✅</span>
-                    <div>
-                        <div style="font-size: 1.25rem; font-weight: 700; color: #065f46;">
-                            {action['title']}
-                        </div>
-                        <div style="font-size: 0.95rem; color: #047857; margin-top: 4px;">
-                            {safety['reason']}
-                        </div>
-                    </div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-
-            sc1_col1, sc1_col2 = st.columns([1.1, 0.9])
-
-            with sc1_col1:
-                st.markdown("#### 🔍 Evidence Inspected & Downstream Telemetry")
-                st.markdown("""
-                - **Simulated Event:** Client observed `HTTP 504 Gateway Timeout` after 30,000ms.
-                - **Downstream Inquiry:** Sent verification query to `PayFlow Central Reconciliation Ledger`.
-                - **Ledger Verification:** Returned `HTTP 404 (NOT_FOUND_IN_LEDGER)` with `lock_acquired=False`.
-                - **Conclusion:** Conclusively proven that request dropped before downstream execution.
-                """)
-
-                st.markdown("#### 🛡️ 4-Gate Safety Checklist")
-                for key, gate in safety["checks_matrix"].items():
-                    icon = "✅" if gate["status"] == "PASS" else "❌"
-                    badge_cls = "badge-success" if gate["status"] == "PASS" else "badge-danger"
-                    st.markdown(f"""
-                    <div class="gate-card">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <strong>{icon} {gate['name']}</strong>
-                            <span class="badge {badge_cls}">{gate['status']}</span>
-                        </div>
-                        <div style="font-size: 0.82rem; color: #64748b; margin-top: 4px;">{gate['detail']}</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-            with sc1_col2:
-                st.markdown("#### ⚡ Safe Simulated Recovery Action")
-                st.markdown(f"""
-                <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
-                    <div style="font-weight: 600; color: #0f172a;">Executed Action:</div>
-                    <div style="font-family: monospace; font-size: 0.88rem; background: #f1f5f9; padding: 8px; border-radius: 4px; margin-top: 4px;">
-                        {action['action_executed']}
-                    </div>
-                    <div style="font-weight: 600; color: #0f172a; margin-top: 10px;">Simulated API Response:</div>
-                    <div style="font-family: monospace; font-size: 0.85rem; color: #166534; background: #dcfce7; padding: 8px; border-radius: 4px; margin-top: 4px;">
-                        {action['simulated_response']}
-                    </div>
-                    <div style="font-weight: 600; color: #0f172a; margin-top: 10px;">Order State Transition:</div>
-                    <div style="font-size: 0.9rem; font-weight: 600; color: #0284c7; margin-top: 2px;">
-                        {action['order_stage_transition']}
-                    </div>
-                    <div style="font-size: 0.8rem; color: #64748b; margin-top: 8px;">
-                        ℹ️ <em>Clearly labeled: This is a controlled in-memory simulation. No real money moved.</em>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-
-        # SCENARIO 2 RENDER
-        elif "Scenario 2" in scenario_name:
-            sla_info = active_res["sla_result"]
-            root_cause = active_res["root_cause"]
-            action = active_res["simulated_action_result"]
-
-            st.markdown(f"""
-            <div class="decision-banner-warning">
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <span style="font-size: 1.8rem;">⚠️</span>
-                    <div>
-                        <div style="font-size: 1.25rem; font-weight: 700; color: #92400e;">
-                            {active_res['alert_title']}
-                        </div>
-                        <div style="font-size: 0.95rem; color: #b45309; margin-top: 4px;">
-                            {sla_info['message']}
-                        </div>
-                    </div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-
-            sc2_col1, sc2_col2 = st.columns([1.1, 0.9])
-
-            with sc2_col1:
-                st.markdown("#### ⏱️ Stage Duration vs. SLA Threshold")
-                st.progress(min(1.0, sla_info['consumption_pct'] / 100.0))
-                st.markdown(f"""
-                - **Current Stage:** `{order['current_stage']}`
-                - **Elapsed Time:** `{sla_info['elapsed_minutes']:.1f} mins`
-                - **Configured SLA Limit:** `{sla_info['threshold_minutes']:.1f} mins`
-                - **Consumption Ratio:** `{(sla_info['consumption_pct']):.0f}% of allowed budget`
-                - **Breach Status:** Exceeded threshold by `+{sla_info['elapsed_minutes'] - sla_info['threshold_minutes']:.1f} minutes`
-                """)
-
-                st.markdown("#### 🔍 Root-Cause Telemetry & Missing Confirmation")
-                st.markdown(f"**Likely Cause:** {root_cause['likely_cause']}")
-                for ev in root_cause["supporting_evidence"]:
-                    st.markdown(f"- 📄 {ev}")
-                st.markdown(f"- ⚠️ **Missing Event:** {', '.join(root_cause['missing_evidence'])}")
-
-            with sc2_col2:
-                st.markdown("#### 💡 Transparent Rule-Based Diagnosis")
-                st.markdown(f"""
-                <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 16px; margin-bottom: 12px;">
-                    <div style="font-weight: 600; color: #0f172a;">Rule Applied:</div>
-                    <div style="font-size: 0.85rem; color: #475569; background: #f8fafc; padding: 8px; border-radius: 4px; margin-top: 4px;">
-                        <code>{sla_info['rule_applied']}</code>
-                    </div>
-                    <div style="font-weight: 600; color: #0f172a; margin-top: 10px;">Confidence:</div>
-                    <div style="font-size: 0.88rem; color: #059669; font-weight: 600;">{root_cause['confidence_label']}</div>
-                    <div style="font-weight: 600; color: #0f172a; margin-top: 10px;">Recommended Next Action:</div>
-                    <div style="font-size: 0.88rem; color: #b45309;">{sla_info['recommendation']}</div>
-                    <div style="margin-top: 14px; padding-top: 10px; border-top: 1px solid #e2e8f0;">
-                        <span class="badge badge-warning">Simulated Action Dispatched</span>
-                        <div style="font-size: 0.82rem; color: #475569; margin-top: 4px;">{action['action_executed']}</div>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-
-        # SCENARIO 3 RENDER
-        elif "Scenario 3" in scenario_name:
-            safety = active_res["safety_result"]
-            root_cause = active_res["root_cause"]
-            action = active_res["simulated_action_result"]
-
-            st.markdown(f"""
-            <div class="decision-banner-review">
-                <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;">
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <span style="font-size: 2rem;">🛑</span>
-                        <div>
-                            <div style="font-size: 1.3rem; font-weight: 800; color: #581c87;">
-                                {active_res['alert_title']}
-                            </div>
-                            <div style="font-size: 0.95rem; color: #6b21a8; margin-top: 4px;">
-                                {safety['reason']}
-                            </div>
-                        </div>
-                    </div>
-                    <div>
-                        <span class="badge badge-purple" style="font-size: 0.9rem; padding: 6px 14px;">
-                            ⭐ {active_res['core_differentiator']}
-                        </span>
-                    </div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-
-            sc3_col1, sc3_col2 = st.columns([1.1, 0.9])
-
-            with sc3_col1:
-                st.markdown("#### 🚨 Why Blind Retry is BLOCKED")
-                st.markdown("""
-                - **The Golden Rule:** An API timeout does **NOT** equal failure!
-                - **The Hazard:** The downstream cold-chain ledger received the commit request before the socket timed out.
-                - **Reconciliation Status:** Upstream ledger returned `HTTP 502 Bad Gateway (INDETERMINATE / IN_PROGRESS)`.
-                - **Double-Mutation Risk:** Blindly retrying now could duplicate reservation of 500 scarce medical units or double-charge $16,750!
-                - **Safety Action:** Automatic retries suspended. Safety Escrow Lock engaged.
-                """)
-
-                st.markdown("#### 🛡️ 4-Gate Safety Checklist")
-                for key, gate in safety["checks_matrix"].items():
-                    icon = "✅" if gate["status"] == "PASS" else "❌"
-                    badge_cls = "badge-success" if gate["status"] == "PASS" else "badge-danger"
-                    st.markdown(f"""
-                    <div class="gate-card">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <strong>{icon} {gate['name']}</strong>
-                            <span class="badge {badge_cls}">{gate['status']}</span>
-                        </div>
-                        <div style="font-size: 0.82rem; color: #64748b; margin-top: 4px;">{gate['detail']}</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-            with sc3_col2:
-                st.markdown("#### 👤 Complete the Human-in-the-Loop Lifecycle")
-                st.markdown("""
-                As an authorized operator, simulate manual ledger verification to safely resolve this order:
-                """)
-
-                op_col1, op_col2 = st.columns(2)
-                with op_col1:
-                    if st.button("🤝 Verify Committed (Safe)", use_container_width=True, help="Operator confirmed transaction succeeded downstream"):
-                        run_operator_resolution(
-                            orders=st.session_state.orders,
-                            audit_log=st.session_state.audit_log,
-                            order_id="ORD-8043",
-                            resolution_type="VERIFIED_COMMITTED",
-                            executed_idemp_keys=st.session_state.executed_idemp_keys
-                        )
-                        st.toast("Operator verified transaction was committed! Order unlocked.", icon="✅")
-                        st.rerun()
-
-                with op_col2:
-                    if st.button("🔄 Verify Failed & Retry", use_container_width=True, help="Operator confirmed downstream was voided, safe to retry"):
-                        run_operator_resolution(
-                            orders=st.session_state.orders,
-                            audit_log=st.session_state.audit_log,
-                            order_id="ORD-8043",
-                            resolution_type="VERIFIED_FAILED_RETRY",
-                            executed_idemp_keys=st.session_state.executed_idemp_keys
-                        )
-                        st.toast("Operator confirmed void and authorized controlled retry!", icon="🔄")
-                        st.rerun()
-
-                st.markdown(f"""
-                <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 14px; margin-top: 14px;">
-                    <div style="font-weight: 600; color: #0f172a;">Simulated Safety Escrow:</div>
-                    <div style="font-size: 0.85rem; color: #64748b; margin-top: 4px;">
-                        {action['action_executed']}
-                    </div>
-                    <div style="font-family: monospace; font-size: 0.82rem; color: #6b21a8; background: #f5f3ff; padding: 6px; border-radius: 4px; margin-top: 6px;">
-                        {action['simulated_response']}
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-
-        # Common Event Timeline for Target Order
-        st.markdown("<hr style='margin: 18px 0; border: none; border-top: 1px solid #e2e8f0;'>", unsafe_allow_html=True)
-        st.markdown(f"#### 📜 Updated Event Timeline for `{order_id}`")
-
-        for ev in reversed(order["events"]):
-            st_badge = {
-                "SUCCESS": "badge-success",
-                "WARNING": "badge-warning",
-                "ERROR": "badge-danger",
-                "PENDING": "badge-info"
-            }.get(ev.get("status", "SUCCESS"), "badge-neutral")
-
-            st.markdown(f"""
-            <div class="timeline-node">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <strong style="color: #0f172a;">{ev['event_name']}</strong>
-                    <span style="font-size: 0.8rem; color: #64748b;">{ev['timestamp']}</span>
-                </div>
-                <div style="margin-top: 2px;">
-                    <span class="badge {st_badge}">{ev.get('stage', 'Stage')}</span>
-                    <span style="font-size: 0.85rem; color: #334155; margin-left: 8px;">{ev['detail']}</span>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-
-
-# =========================================================
-# TAB 2: ORDER DIGITAL TWIN & FLEET DASHBOARD
-# =========================================================
-with tab_fleet:
-    st.markdown("### 📦 Fleet-Wide Order Digital Twins")
-    st.markdown("Select any synthetic order to inspect its unified state, timeline, telemetry logs, and diagnostic evaluation.")
-
-    # Search and Filter Controls
-    f_col1, f_col2, f_col3 = st.columns([1.5, 1.2, 1.2])
-    with f_col1:
-        search_query = st.text_input("🔍 Search by Order ID, Customer, or Item", placeholder="e.g. ORD-8041, Acme, Scanners")
-    with f_col2:
-        status_filter = st.selectbox("Filter by Status", ["All Statuses"] + sorted(list({o["status"] for o in orders_dict.values()})))
-    with f_col3:
-        risk_filter = st.selectbox("Filter by Risk Level", ["All Risks"] + sorted(list({o["risk_level"] for o in orders_dict.values()})))
-
-    # Filter Orders
-    filtered_orders = []
-    for oid, o in orders_dict.items():
-        if search_query:
-            q = search_query.lower()
-            if q not in oid.lower() and q not in o["customer"].lower() and q not in o["item_summary"].lower():
-                continue
-        if status_filter != "All Statuses" and o["status"] != status_filter:
-            continue
-        if risk_filter != "All Risks" and o["risk_level"] != risk_filter:
-            continue
-        filtered_orders.append(o)
-
-    # Convert to Display DataFrame
-    df_rows = []
-    for o in filtered_orders:
-        df_rows.append({
-            "Order ID": o["order_id"],
-            "Customer": o["customer"],
-            "Order Type": o.get("order_type", "Standard"),
-            "Current Stage": o["current_stage"],
-            "Status": o["status"],
-            "Elapsed Time": f"{o['elapsed_minutes']:.1f}m",
-            "SLA Limit": f"{o['sla_threshold_minutes']:.1f}m",
-            "Risk Level": o["risk_level"],
-            "Latest Event": o.get("latest_event", "N/A"),
-            "Recommended Next Action": o.get("recommended_next_action", "N/A")
-        })
-
-    df_display = pd.DataFrame(df_rows)
-    st.dataframe(df_display, use_container_width=True, hide_index=True)
-
-    st.markdown("<hr style='margin: 16px 0; border: none; border-top: 1px solid #e2e8f0;'>", unsafe_allow_html=True)
-
-    # Digital Twin Inspector
-    st.markdown("### 🔬 Order Digital Twin Inspector")
-    available_ids = [o["order_id"] for o in filtered_orders] or list(orders_dict.keys())
-    default_idx = available_ids.index(st.session_state.selected_order_id) if st.session_state.selected_order_id in available_ids else 0
-
-    selected_oid = st.selectbox("Select Order to inspect unified state:", available_ids, index=default_idx)
-    st.session_state.selected_order_id = selected_oid
-    sel_order = orders_dict[selected_oid]
-
-    # Twin Overview Tiles
-    dt_c1, dt_c2, dt_c3, dt_c4 = st.columns(4)
-    dt_c1.metric("Order ID", sel_order["order_id"], delta=sel_order.get("order_type", "Standard"))
-    dt_c2.metric("Current Stage", sel_order["current_stage"])
-    dt_c3.metric("Elapsed / SLA Limit", f"{sel_order['elapsed_minutes']:.1f}m / {sel_order['sla_threshold_minutes']:.1f}m")
-    dt_c4.metric("Risk Level", sel_order["risk_level"])
-
-    # Two column inspector: Left = Timeline & Logs, Right = Evidence & Diagnosis
-    twin_col1, twin_col2 = st.columns([1.1, 0.9])
-
-    with twin_col1:
-        st.markdown("#### 📜 Event Timeline")
-        for ev in reversed(sel_order["events"]):
-            st_badge = {
-                "SUCCESS": "badge-success",
-                "WARNING": "badge-warning",
-                "ERROR": "badge-danger",
-                "PENDING": "badge-info"
-            }.get(ev.get("status", "SUCCESS"), "badge-neutral")
-
-            st.markdown(f"""
-            <div class="timeline-node">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <strong style="color: #0f172a;">{ev['event_name']}</strong>
-                    <span style="font-size: 0.78rem; color: #64748b;">{ev['timestamp']}</span>
-                </div>
-                <div style="margin-top: 2px;">
-                    <span class="badge {st_badge}">{ev.get('stage', 'Stage')}</span>
-                    <span style="font-size: 0.85rem; color: #334155; margin-left: 6px;">{ev['detail']}</span>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-
-        st.markdown("#### 📡 Simulated API Telemetry Logs")
-        api_logs = sel_order.get("simulated_api_logs", [])
-        if api_logs:
-            for log in api_logs:
-                log_color = {
-                    "INFO": "#0284c7",
-                    "WARN": "#d97706",
-                    "ERROR": "#dc2626",
-                    "CRITICAL": "#7c3aed"
-                }.get(log.get("log_level", "INFO"), "#475569")
-
-                st.markdown(f"""
-                <div style="background: #ffffff; border-left: 4px solid {log_color}; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 14px; margin-bottom: 8px;">
-                    <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: #64748b;">
-                        <span>{log['timestamp']} • <strong>{log['method']}</strong> {log['endpoint']}</span>
-                        <span>HTTP {log.get('status_code', 'TIMEOUT')} • {log.get('latency_ms', 0)}ms</span>
-                    </div>
-                    <div style="font-family: monospace; font-size: 0.82rem; color: #1e293b; margin-top: 4px;">
-                        {log.get('message', '')}
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-        else:
-            st.info("No API telemetry events recorded for this order.")
-
-    with twin_col2:
-        st.markdown("#### 🔍 Evidence-Based Root Cause Diagnosis")
-        diag = analyze_root_cause(sel_order)
-
+    with cmp_col2:
         st.markdown(f"""
-        <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 16px;">
-            <div style="font-size: 0.82rem; text-transform: uppercase; color: #64748b; font-weight: 600;">Likely Cause</div>
-            <div style="font-size: 1.1rem; font-weight: 700; color: #0f172a; margin-top: 2px;">{diag['likely_cause']}</div>
-            
-            <div style="margin-top: 12px; font-weight: 600; font-size: 0.88rem; color: #334155;">Supporting Evidence:</div>
-            <ul style="margin-top: 4px; padding-left: 20px; font-size: 0.85rem; color: #475569;">
-                {''.join([f"<li>{ev}</li>" for ev in diag['supporting_evidence']])}
-            </ul>
-
-            <div style="margin-top: 10px; font-weight: 600; font-size: 0.88rem; color: #334155;">Missing Evidence:</div>
-            <ul style="margin-top: 4px; padding-left: 20px; font-size: 0.85rem; color: #475569;">
-                {''.join([f"<li>{ev}</li>" for ev in diag['missing_evidence']])}
-            </ul>
-
-            <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #e2e8f0;">
-                <div style="font-size: 0.82rem; color: #64748b;">Confidence Rating:</div>
-                <div style="font-weight: 600; color: #0284c7;">{diag['confidence_label']}</div>
-            </div>
-
-            <div style="margin-top: 10px;">
-                <div style="font-size: 0.82rem; color: #64748b;">Rule Applied:</div>
-                <div style="font-size: 0.8rem; color: #334155; background: #f8fafc; padding: 6px; border-radius: 4px;">{diag['rule_rationale']}</div>
-            </div>
-
-            <div style="margin-top: 10px;">
-                <div style="font-size: 0.82rem; color: #64748b;">Recommended Next Action:</div>
-                <div style="font-size: 0.88rem; font-weight: 600; color: #b45309;">{diag['recommended_next_action']}</div>
-            </div>
+        <div class="compare-card">
+            <div class="compare-header">After (Order Status)</div>
+            <div class="compare-label">Order ID</div>
+            <div class="compare-value">{after['order_id']}</div>
+            <div class="compare-label">Updated Stage</div>
+            <div class="compare-value">{after['stage']}</div>
+            <div class="compare-label">Updated Status</div>
+            <div class="compare-value">{after['status']}</div>
+            <div class="compare-label">What changed</div>
+            <div class="compare-value" style="color: #475569; font-size: 0.86rem; font-weight: 500;">{after['detail']}</div>
         </div>
         """, unsafe_allow_html=True)
 
-        st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
-        st.markdown("#### 🛡️ Downstream State & Safety Matrix")
-        d_ev = sel_order.get("downstream_evidence", {})
-        st.json(d_ev)
-
-
-# =========================================================
-# TAB 3: SAFETY GATES & EDGE-CASE LAB
-# =========================================================
-with tab_edge:
-    st.markdown("### 🔬 Safety Gate & Edge-Case Testing Lab")
-    st.markdown("""
-    This interactive lab allows hackathon judges to verify the **4 strict safety gates** and test boundary edge cases:
-    - **Test D:** What if duplicate protection fails (e.g. replay attack or key reused)?
-    - **Test E:** What if the retry budget limit has been reached?
-    - **Policy Gate:** What if policy forbids automatic recovery?
-    """)
-
-    st.markdown("<hr style='margin: 14px 0; border: none; border-top: 1px solid #e2e8f0;'>", unsafe_allow_html=True)
-
-    edge_col1, edge_col2 = st.columns([1, 1.2])
-
-    with edge_col1:
-        st.markdown("#### ⚙️ Configure Edge-Case Parameters")
-        target_oid = st.selectbox("Select Target Order for Edge Test:", list(orders_dict.keys()), key="edge_oid")
-        target_order = copy.deepcopy(orders_dict[target_oid])
-
-        gate1_verified = st.toggle("Gate 1: Downstream Failure Conclusively Verified?", value=True)
-        gate2_dup_pass = st.toggle("Gate 2: Duplicate Protection / Idempotency Valid?", value=True, help="Toggle to False to simulate Test D: Duplicate Key Conflict")
-        gate3_retries = st.slider("Gate 3: Current Retry Count (Max = 2)", min_value=0, max_value=3, value=0, help="Set to 2 or 3 to simulate Test E: Retry Budget Exhausted")
-        gate4_policy = st.toggle("Gate 4: Recovery Policy Authorizes Action?", value=True)
-
-        evaluate_edge = st.button("🚀 Evaluate Safety Gates Live", use_container_width=True, type="primary")
-
-    with edge_col2:
-        st.markdown("#### 📊 Live Sentinel Safety Evaluation")
+    # Six core plain-English answers
+    st.markdown(f"""
+    <div class="answers-box">
+        <div class="answer-item-title">1. What happened?</div>
+        <div class="answer-item-content">{res_details['what_happened']}</div>
         
-        # Run test
-        edge_result = check_retry_safety(
-            order=target_order,
-            failure_verified=gate1_verified,
-            duplicate_protection_passed=gate2_dup_pass,
-            retry_count=gate3_retries,
-            max_retries=2,
-            policy_permits=gate4_policy
-        )
-
-        if edge_result["all_passed"]:
-            st.markdown(f"""
-            <div class="decision-banner-safe">
-                <div style="font-size: 1.2rem; font-weight: 700; color: #065f46;">
-                    ✅ {edge_result['status_label']}
-                </div>
-                <div style="font-size: 0.9rem; color: #047857; margin-top: 4px;">
-                    {edge_result['reason']}
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-        elif not gate1_verified:
-            st.markdown(f"""
-            <div class="decision-banner-review">
-                <div style="font-size: 1.2rem; font-weight: 700; color: #581c87;">
-                    🛑 {edge_result['status_label']}
-                </div>
-                <div style="font-size: 0.9rem; color: #6b21a8; margin-top: 4px;">
-                    {edge_result['reason']}
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-        else:
-            st.markdown(f"""
-            <div class="decision-banner-blocked">
-                <div style="font-size: 1.2rem; font-weight: 700; color: #991b1b;">
-                    🛑 {edge_result['status_label']}
-                </div>
-                <div style="font-size: 0.9rem; color: #b91c1c; margin-top: 4px;">
-                    {edge_result['reason']}
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-
-        st.markdown("##### Detailed Gate Breakdown:")
-        for key, g in edge_result["checks_matrix"].items():
-            icon = "✅" if g["passed"] else "❌"
-            badge_cls = "badge-success" if g["passed"] else "badge-danger"
-            st.markdown(f"""
-            <div class="gate-card">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <strong>{icon} {g['name']}</strong>
-                    <span class="badge {badge_cls}">{g['status']}</span>
-                </div>
-                <div style="font-size: 0.8rem; color: #64748b; margin-top: 2px;">{g['detail']}</div>
-            </div>
-            """, unsafe_allow_html=True)
-
-
-# =========================================================
-# TAB 4: IMMUTABLE AUDIT TRAIL
-# =========================================================
-with tab_audit:
-    st.markdown("### 📜 Immutable Audit Trail")
-    st.markdown("""
-    Every diagnostic deduction, safety gate evaluation, and simulated recovery action is permanently recorded
-    in the session audit trail to ensure 100% enterprise accountability.
-    """)
-
-    audit_records = st.session_state.audit_log
-
-    # Audit Filter
-    aud_col1, aud_col2 = st.columns([1.5, 1])
-    with aud_col1:
-        aud_search = st.text_input("Filter audit trail by Order ID or Keyword:", placeholder="e.g. ORD-8041, RETRY_PERMITTED")
-    with aud_col2:
-        st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
-        df_audit = pd.DataFrame(audit_records)
-        csv_data = df_audit.to_csv(index=False).encode('utf-8')
-        st.download_button(
-            label="📥 Download Audit Trail (CSV)",
-            data=csv_data,
-            file_name=f"orderflow_sentinel_audit_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-            mime="text/csv",
-            use_container_width=True
-        )
-
-    # Filter records
-    filtered_audit = []
-    for r in audit_records:
-        if aud_search:
-            q = aud_search.lower()
-            match = (
-                q in r["order_id"].lower() or
-                q in r["scenario"].lower() or
-                q in r["safety_decision"].lower() or
-                q in r["reason"].lower()
-            )
-            if not match:
-                continue
-        filtered_audit.append(r)
-
-    st.markdown(f"**Displaying {len(filtered_audit)} audit event records:**")
-    st.dataframe(pd.DataFrame(filtered_audit), use_container_width=True, hide_index=True)
-
-    st.markdown("""
-    <div style="font-size: 0.8rem; color: #64748b; margin-top: 10px;">
-        ℹ️ <strong>System Architecture Note:</strong> For this hackathon prototype, the audit trail is maintained in session memory and can be exported as CSV. In production, this ledger streams to an append-only distributed event bus (Kafka/Kinesis) and an immutable data lake.
+        <div class="answer-item-title">2. Why did it happen?</div>
+        <div class="answer-item-content">{res_details['why_it_happened']}</div>
+        
+        <div class="answer-item-title">3. What did the system check?</div>
+        <div class="answer-item-content">{res_details['what_checked']}</div>
+        
+        <div class="answer-item-title">4. Decision</div>
+        <div style="margin-top: 4px; margin-bottom: 6px;">
+            <span class="{decision_badge_style}" style="font-size: 0.85rem; padding: 4px 12px;">{res_details['decision_badge']}</span>
+        </div>
+        
+        <div class="answer-item-title">5. What changed?</div>
+        <div class="answer-item-content">{res_details['what_changed']}</div>
+        
+        <div class="answer-item-title">6. What should happen next?</div>
+        <div class="answer-item-content" style="font-weight: 600; color: #0f2942;">{res_details['next_step']}</div>
     </div>
     """, unsafe_allow_html=True)
 
+    # In Scenario 3, provide simulated human operator resolution options
+    if scenario_name == "Uncertain Outcome":
+        st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='font-size: 0.82rem; font-weight: 700; color: #0f2942; text-transform: uppercase;'>Simulate Human Operator Action:</div>", unsafe_allow_html=True)
+        op_col1, op_col2 = st.columns(2)
+        with op_col1:
+            if st.button("🤝 Verify Committed (Safe to Proceed)", key="btn_op_commit", use_container_width=True):
+                run_operator_resolution(
+                    orders=st.session_state.orders,
+                    audit_log=st.session_state.audit_log,
+                    order_id="ORD-8043",
+                    resolution_type="VERIFIED_COMMITTED",
+                    executed_idemp_keys=st.session_state.executed_idemp_keys
+                )
+                st.toast("Operator confirmed transaction was recorded downstream! Order unlocked.", icon="✅")
+                st.rerun()
+        with op_col2:
+            if st.button("🔄 Verify Void & Safe Retry", key="btn_op_retry", use_container_width=True):
+                run_operator_resolution(
+                    orders=st.session_state.orders,
+                    audit_log=st.session_state.audit_log,
+                    order_id="ORD-8043",
+                    resolution_type="VERIFIED_FAILED_RETRY",
+                    executed_idemp_keys=st.session_state.executed_idemp_keys
+                )
+                st.toast("Operator confirmed void and authorized controlled retry!", icon="🔄")
+                st.rerun()
+
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # =========================================================
-# TAB 5: PRESENTATION & ARCHITECTURE GUIDE
+# G. ADVANCED DETAILS (Expandable Sections at Bottom)
 # =========================================================
-with tab_guide:
-    st.markdown("### 🎓 Virtusa Hackathon Presentation & Architecture Guide")
-    st.markdown("Use this section to confidently explain OrderFlow Sentinel to hackathon judges.")
+st.markdown('<div class="section-title">⚙️ Advanced Details</div>', unsafe_allow_html=True)
 
-    st.markdown("<hr style='margin: 14px 0; border: none; border-top: 1px solid #e2e8f0;'>", unsafe_allow_html=True)
+# Expander 1: Technical Evidence
+with st.expander("View Technical Evidence"):
+    st.markdown("##### Downstream Reconciliation & Root-Cause Evidence")
+    active_eval_order = active_res["order"] if active_res else current_order
+    diag_info = analyze_root_cause(active_eval_order)
+    
+    ev_c1, ev_c2 = st.columns(2)
+    with ev_c1:
+        st.markdown(f"**Likely Root Cause:** `{diag_info['likely_cause']}`")
+        st.markdown(f"**Confidence Level:** `{diag_info['confidence_label']}`")
+        st.markdown("**Supporting Evidence:**")
+        for ev_line in diag_info.get("supporting_evidence", []):
+            st.markdown(f"- {ev_line}")
+    with ev_c2:
+        st.markdown("**Downstream Ledger Verification Details:**")
+        st.json(active_eval_order.get("downstream_evidence", {}))
 
-    p_col1, p_col2 = st.columns(2)
+# Expander 2: Safety Checks
+with st.expander("View Safety Checks"):
+    st.markdown("##### 4-Gate Safety Checklist (“Prove Before You Retry”)")
+    active_eval_order = active_res["order"] if active_res else current_order
+    safety_eval = check_retry_safety(active_eval_order, executed_idemp_keys=st.session_state.executed_idemp_keys)
+    
+    chk_c1, chk_c2, chk_c3, chk_c4 = st.columns(4)
+    chk_matrix = safety_eval["checks_matrix"]
+    
+    with chk_c1:
+        st.markdown(f"**Gate 1: Failure Verified**")
+        st.markdown(f"Status: `{'PASS ✅' if chk_matrix['failure_verified']['passed'] else 'FAIL ❌'}`")
+        st.caption(chk_matrix['failure_verified']['detail'])
+    with chk_c2:
+        st.markdown(f"**Gate 2: Duplicate Check**")
+        st.markdown(f"Status: `{'PASS ✅' if chk_matrix['duplicate_protection']['passed'] else 'FAIL ❌'}`")
+        st.caption(chk_matrix['duplicate_protection']['detail'])
+    with chk_c3:
+        st.markdown(f"**Gate 3: Retry Budget**")
+        st.markdown(f"Status: `{'PASS ✅' if chk_matrix['retry_budget']['passed'] else 'FAIL ❌'}`")
+        st.caption(chk_matrix['retry_budget']['detail'])
+    with chk_c4:
+        st.markdown(f"**Gate 4: Recovery Policy**")
+        st.markdown(f"Status: `{'PASS ✅' if chk_matrix['policy_permits']['passed'] else 'FAIL ❌'}`")
+        st.caption(chk_matrix['policy_permits']['detail'])
 
-    with p_col1:
-        st.markdown("#### 🏛️ The Four Core Capabilities")
-        st.markdown("""
-        1. **Order Digital Twin:**
-           - A unified, real-time representation of an order's lifecycle, stages, events, API telemetry, and expected next step across disconnected enterprise systems.
-        2. **Predictive SLA Alerts:**
-           - Proactively catches stalled orders before contractual SLA breach using deterministic stage-time threshold monitoring (`elapsed_time > stage_limit`).
-        3. **Evidence-Based Root Cause:**
-           - Eliminates guesswork by inspecting telemetry logs and downstream reconciliation records to verify *why* a failure occurred.
-        4. **Risk-Based Safe Auto-Healing:**
-           - Enforces strict safety gates. Auto-retry is permitted *only* when failure is proven, duplicate protection passes, retry budget remains, and policy approves.
-        """)
+# Expander 3: API Simulation
+with st.expander("View API Simulation"):
+    st.markdown("##### Simulated API Telemetry & Payload Logs")
+    active_eval_order = active_res["order"] if active_res else current_order
+    sim_logs = active_eval_order.get("simulated_api_logs", [])
+    if sim_logs:
+        for sl in sim_logs:
+            st.code(
+                f"[{sl.get('timestamp')}] {sl.get('method')} {sl.get('endpoint')}\n"
+                f"HTTP {sl.get('status_code', 'TIMEOUT')} | Latency: {sl.get('latency_ms', 0)}ms | Level: {sl.get('log_level', 'INFO')}\n"
+                f"{sl.get('message', '')}",
+                language="http"
+            )
+    else:
+        st.info("No API logs recorded for this order.")
 
-        st.markdown("#### ⭐ The Key Differentiator: *Prove Before You Retry*")
-        st.markdown("""
-        In distributed enterprise architectures, an **API Timeout (HTTP 504) does NOT mean failure**.
-        - The request may have reached the bank switch and charged the customer before the response connection dropped.
-        - Blindly retrying can cause **double-charging** or **double inventory depletion**.
-        - OrderFlow Sentinel *proves* non-execution via downstream reconciliation ledger before authorizing any retry. If ambiguous, it enforces **Human Review Required**.
-        """)
+# Expander 4: Audit Trail
+with st.expander("View Audit Trail"):
+    st.markdown("##### Session Decision & Action Audit Records")
+    aud_df = pd.DataFrame(st.session_state.audit_log)
+    st.dataframe(aud_df, use_container_width=True, hide_index=True)
+    
+    aud_col_left, aud_col_right = st.columns([1, 1])
+    with aud_col_left:
+        csv_bytes = aud_df.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="📥 Download Audit Trail (CSV)",
+            data=csv_bytes,
+            file_name=f"orderflow_audit_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+            mime="text/csv"
+        )
+    with aud_col_right:
+        if st.button("Reset Entire Demo State", key="btn_reset_bottom", help="Restores fresh baseline data"):
+            reset_entire_demo()
+            st.toast("Demo state reset to initial baseline.", icon="🔄")
+            st.rerun()
 
-    with p_col2:
-        st.markdown("#### 🎤 2-Minute Judge Pitch Script")
-        st.markdown("""
-        > *"Good morning judges! We are presenting **OrderFlow Sentinel — Predict, Explain, Recover Safely**.*
-        >
-        > *In modern enterprise commerce, orders traverse dozens of microservices, payment gateways, and warehouse systems. When an API call times out, systems traditionally do one of two bad things: they fail silently, or they blindly retry—risking duplicate charges and inventory chaos.*
-        >
-        > *OrderFlow Sentinel introduces our golden rule: **'Prove Before You Retry'**.*
-        >
-        > *1. In **Scenario 1**, an API timeout occurs, but our sentinel queries the downstream ledger, verifies zero fund locks, checks duplicate protection, and safely auto-recovers the order.*
-        > *2. In **Scenario 2**, our deterministic SLA engine detects an order stalling in the warehouse, explains the RF terminal disconnect root cause, and alerts operations.*
-        > *3. In **Scenario 3**, when downstream state is ambiguous, Sentinel **blocks the blind retry** and triggers **Human Review Required** to protect business assets.*
-        >
-        > *Everything is tracked in an immutable audit trail for full compliance."*
-        """)
-
-        st.markdown("#### 🔬 What is Implemented vs. Simulated")
-        st.markdown("""
-        - **Implemented:** Full diagnostic rule engine, 4-gate safety logic, deterministic SLA calculation, session state management, interactive operator controls, and CSV audit export.
-        - **Simulated:** Downstream banking API switches, warehouse RF scanner networks, and external database partitions (to enable standalone, zero-dependency, safe local & cloud deployment).
-        """)
-
-st.markdown("<hr style='margin: 24px 0 12px 0; border: none; border-top: 1px solid #e2e8f0;'>", unsafe_allow_html=True)
+# ---------------------------------------------------------
+# Footer
+# ---------------------------------------------------------
+st.markdown("<hr style='margin: 24px 0 10px 0; border: none; border-top: 1px solid #e2e8f0;'>", unsafe_allow_html=True)
 st.markdown("""
-<div style="text-align: center; font-size: 0.82rem; color: #94a3b8;">
-    OrderFlow Sentinel • Virtusa Hackathon Solution • Predict. Explain. Recover Safely.
+<div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; color: #94a3b8; flex-wrap: wrap;">
+    <div>OrderFlow Sentinel • Virtusa Hackathon Prototype • Predict. Explain. Recover Safely.</div>
+    <div>All orders, telemetry, and actions are simulated for demonstration.</div>
 </div>
 """, unsafe_allow_html=True)
